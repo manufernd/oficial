@@ -1,0 +1,37 @@
+.bb-gradient {
+      background: #F8D117;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+}
+.input-focus:focus {
+      box-shadow: 0 0 0 3px rgba(255, 204, 0, 0.5);
+      border-color: #F8D117;
+}
+.bb-logo {
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+.bb-gradient-button {
+      background: linear-gradient(135deg, #0033a0 0%, #0059b3 100%);
+      transition: background 0.3s ease;
+}
+.bb-gradient-button:hover {
+      background: linear-gradient(135deg, #002c80 0%, #004a99 100%);
+}
+.security-box {
+      border-left: 4px solid #ffcc00;
+      background-color: #fffbea;
+}
+.security-box i {
+      color: #ffcc00;
+}
+
+.error-message {
+    color: #ff4d4d;
+    font-size: 0.8em;
+    margin-top: 4px;
+}
+
+.input-error {
+    border: 1px solid #ff4d4d;
+}
